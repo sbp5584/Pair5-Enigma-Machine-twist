@@ -18,6 +18,7 @@ type Block struct {
 	Index        int
 	Timestamp    string
 	Message      string
+	Decrypted    string
 	Hash         string
 	PreviousHash string
 	Signature    string
@@ -170,7 +171,8 @@ func handleConnection(conn net.Conn, blockchain *[]Block, em *EnigmaMachine, pri
 		for _, block := range *blockchain {
 			conn.Write([]byte(fmt.Sprintf("Index: %d\n", block.Index)))
 			conn.Write([]byte(fmt.Sprintf("Timestamp: %s\n", block.Timestamp)))
-			conn.Write([]byte(fmt.Sprintf("Message: %s\n", em.Decrypt(block.Message))))
+			conn.Write([]byte(fmt.Sprintf("Original Message: %s\n", block.Message)))              // Original message
+			conn.Write([]byte(fmt.Sprintf("Decrypted Message: %s\n", em.Decrypt(block.Message)))) // Decrypted message
 			conn.Write([]byte(fmt.Sprintf("Hash: %s\n", block.Hash)))
 			conn.Write([]byte(fmt.Sprintf("PreviousHash: %s\n", block.PreviousHash)))
 			conn.Write([]byte(fmt.Sprintf("Signature: %s\n", block.Signature)))
@@ -179,6 +181,13 @@ func handleConnection(conn net.Conn, blockchain *[]Block, em *EnigmaMachine, pri
 		}
 	} else {
 		newBlock := createBlock((*blockchain)[len(*blockchain)-1], message, em, privkey)
+
+		// Update the newBlock with additional fields
+		newBlock.Decrypted = em.Decrypt(message)
+		newBlock.Index = len(*blockchain)
+		newBlock.Timestamp = time.Now().String()
+		newBlock.PreviousHash = (*blockchain)[len(*blockchain)-1].Hash
+
 		*blockchain = append(*blockchain, newBlock)
 		conn.Write([]byte("Block added\n"))
 	}
@@ -186,7 +195,15 @@ func handleConnection(conn net.Conn, blockchain *[]Block, em *EnigmaMachine, pri
 
 func main() {
 	blockchain := make([]Block, 1)
-	blockchain[0] = Block{0, time.Now().String(), "", "", "", ""}
+	blockchain[0] = Block{
+		Index:        0,
+		Timestamp:    time.Now().String(),
+		Message:      "",
+		Decrypted:    "",
+		Hash:         "",
+		PreviousHash: "",
+		Signature:    "",
+	}
 
 	privkey, pubkey := generateKeys()
 
@@ -203,7 +220,8 @@ func main() {
 		for _, block := range blockchain {
 			fmt.Fprintf(w, "Index: %d<br>", block.Index)
 			fmt.Fprintf(w, "Timestamp: %s<br>", block.Timestamp)
-			fmt.Fprintf(w, "Message: %s<br>", em.Decrypt(block.Message))
+			fmt.Fprintf(w, "Original Message: %s<br>", block.Message)    // Display original message
+			fmt.Fprintf(w, "Decrypted Message: %s<br>", block.Decrypted) // Decrypted message
 			fmt.Fprintf(w, "Hash: %s<br>", block.Hash)
 			fmt.Fprintf(w, "PreviousHash: %s<br>", block.PreviousHash)
 			fmt.Fprintf(w, "Signature: %s<br>", block.Signature)
